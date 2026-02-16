@@ -537,22 +537,31 @@ export default {
 			if (repo) {
 				const tokenUrl = `${auth_url}/token?service=registry.docker.io&scope=repository:${repo}:pull`;
 				
-				// 1. 确保在 fetch 函数内部读取 env
+				// 1. 尝试获取变量，并增加兜底保护
 				const myToken = (typeof env !== 'undefined' && env.PROXY_PASSWORD) ? env.PROXY_PASSWORD : ""; 
 
 				const tokenRes = await fetch(tokenUrl, {
+					method: 'GET',
 					headers: {
-						// 2. 检查这行代码的语法，注意三个点和问号
+						// 2. 如果有密文就带上身份信息
 						...(myToken ? { 'Authorization': `Basic ${myToken}` } : {}),
-						'User-Agent': getReqHeader("User-Agent"),
-						'Accept': getReqHeader("Accept"),
-						'Accept-Language': getReqHeader("Accept-Language"),
-						'Accept-Encoding': getReqHeader("Accept-Encoding"),
-						'Connection': 'keep-alive',
-						'Cache-Control': 'max-age=0'
+						// 3. 放弃调用 getReqHeader 函数，直接手动写死关键 Header，防止函数内部崩溃
+						'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+						'Accept': '*/*',
+						'Accept-Encoding': 'gzip, deflate, br',
+						'Connection': 'keep-alive'
 					}
 				});
-				const tokenData = await tokenRes.json();
+
+				// 增加防御性判断，防止返回内容不是 JSON 导致崩溃
+				const responseText = await tokenRes.text();
+				let tokenData;
+				try {
+					tokenData = JSON.parse(responseText);
+				} catch (e) {
+					return new Response(`Docker Auth Error: ${responseText}`, { status: 500 });
+				}
+				
 				const token = tokenData.token;
 				let parameter = {
 					headers: {
