@@ -536,8 +536,14 @@ export default {
 			}
 			if (repo) {
 				const tokenUrl = `${auth_url}/token?service=registry.docker.io&scope=repository:${repo}:pull`;
+				
+				// 核心修改：尝试从环境变量 env 中读取你存好的密文
+				const myToken = env.PROXY_PASSWORD || ""; 
+
 				const tokenRes = await fetch(tokenUrl, {
 					headers: {
+						// 只要 myToken 有值，就带上认证头，否则保持原样
+						...(myToken ? { 'Authorization': `Basic ${myToken}` } : {}),
 						'User-Agent': getReqHeader("User-Agent"),
 						'Accept': getReqHeader("Accept"),
 						'Accept-Language': getReqHeader("Accept-Language"),
@@ -547,7 +553,7 @@ export default {
 					}
 				});
 				const tokenData = await tokenRes.json();
-				const token = tokenData.token;
+				const token = tokenData.token;	
 				let parameter = {
 					headers: {
 						'Host': hub_host,
